@@ -13,13 +13,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
-// 🔥 [추가] 광고 패키지
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 void main() async {
-  // 🔥 [추가] 광고 SDK 초기화를 위해 바인딩 필요
   WidgetsFlutterBinding.ensureInitialized();
   await MobileAds.instance.initialize();
+
+  // 🔥 [핵심 변경 1] 시스템 바를 투명하게 만들고 Edge-to-Edge 모드 활성화
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    systemNavigationBarColor: Colors.transparent, // 하단 바 투명
+    systemNavigationBarIconBrightness: Brightness.light, // 아이콘 흰색
+    statusBarColor: Colors.transparent, // 상단 바 투명
+  ));
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   
   runApp(const MyApp());
 }
@@ -157,7 +163,7 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 // ==========================================
-// 2. 서버 목록 화면 (🔥 배너 광고 추가됨)
+// 2. 서버 목록 화면
 // ==========================================
 class ServerListPage extends StatefulWidget {
   const ServerListPage({super.key});
@@ -173,7 +179,6 @@ class _ServerListPageState extends State<ServerListPage> {
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
 
-  // 🔥 광고 관련 변수
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
 
@@ -181,13 +186,11 @@ class _ServerListPageState extends State<ServerListPage> {
   void initState() {
     super.initState();
     _loadServers();
-    _loadBannerAd(); // 광고 로드 시작
+    _loadBannerAd();
   }
 
-  // 🔥 배너 광고 로드 함수
   void _loadBannerAd() {
     _bannerAd = BannerAd(
-      // 테스트용 ID (나중에 실제 ID로 교체 필요)
       adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
       request: const AdRequest(),
       size: AdSize.banner,
@@ -209,7 +212,7 @@ class _ServerListPageState extends State<ServerListPage> {
 
   @override
   void dispose() {
-    _bannerAd?.dispose(); // 메모리 해제 필수
+    _bannerAd?.dispose();
     super.dispose();
   }
 
@@ -323,38 +326,43 @@ class _ServerListPageState extends State<ServerListPage> {
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
       builder: (context) {
-        return Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.folder_shared, color: Colors.orangeAccent),
-              title: const Text("SFTP File Manager", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SFTPPage(serverInfo: _filteredServers[index]),
-                  ),
-                );
-              },
-            ),
-            const Divider(color: Colors.grey),
-            ListTile(
-              leading: const Icon(Icons.edit, color: Colors.blueAccent),
-              title: const Text("Edit Info", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                _editServer(index);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.redAccent),
-              title: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
-              onTap: () {
-                _deleteServer(index);
-              },
-            ),
-          ],
+        // 🔥 [핵심] BottomSheet 하단 여백 처리
+        // 시스템 바 높이만큼 패딩을 주어 가려지지 않게 함
+        return Container(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.folder_shared, color: Colors.orangeAccent),
+                title: const Text("SFTP File Manager", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SFTPPage(serverInfo: _filteredServers[index]),
+                    ),
+                  );
+                },
+              ),
+              const Divider(color: Colors.grey),
+              ListTile(
+                leading: const Icon(Icons.edit, color: Colors.blueAccent),
+                title: const Text("Edit Info", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editServer(index);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.redAccent),
+                title: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  _deleteServer(index);
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -403,7 +411,6 @@ class _ServerListPageState extends State<ServerListPage> {
       ),
       body: Column(
         children: [
-          // 리스트 영역 (남은 공간 차지)
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -429,6 +436,8 @@ class _ServerListPageState extends State<ServerListPage> {
                             ),
                           )
                         : ListView.builder(
+                            // 리스트 마지막 아이템이 광고나 하단바에 가려지지 않도록 여유 패딩 추가
+                            padding: const EdgeInsets.only(bottom: 80),
                             itemCount: _filteredServers.length,
                             itemBuilder: (context, index) {
                               final server = _filteredServers[index];
@@ -474,13 +483,17 @@ class _ServerListPageState extends State<ServerListPage> {
             ),
           ),
           
-          // 🔥 배너 광고 영역 (준비되었을 때만 표시)
           if (_isBannerAdReady)
-            Container(
-              alignment: Alignment.center,
-              width: _bannerAd!.size.width.toDouble(),
-              height: _bannerAd!.size.height.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
+            // 🔥 [핵심] 광고는 정책상 클릭 가능한 영역과 겹치면 안 되므로 SafeArea를 유지하는 게 안전함
+            // 하지만 배경색과 일체감을 위해 SafeArea(top: false) 사용
+            SafeArea(
+              top: false,
+              child: Container(
+                alignment: Alignment.center,
+                width: _bannerAd!.size.width.toDouble(),
+                height: _bannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
             ),
         ],
       ),
@@ -592,11 +605,16 @@ class _SSHConnectPageState extends State<SSHConnectPage> {
   Widget build(BuildContext context) {
     final isEditMode = widget.initialData != null;
     
+    // 🔥 [핵심] 하단 내비게이션 바 높이만큼 패딩을 계산하여 동적으로 적용
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       appBar: AppBar(title: Text(isEditMode ? "Edit Connection" : "New Connection")),
+      // SafeArea 제거: 배경색이 바닥까지 꽉 차게 하기 위함
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          // 마지막 요소 아래에 시스템 바 높이만큼 패딩을 추가
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -624,9 +642,9 @@ class _SSHConnectPageState extends State<SSHConnectPage> {
                   });
                 },
               ),
-
+    
               const SizedBox(height: 10),
-
+    
               if (_useKeyFile) 
                 Container(
                   width: double.infinity,
@@ -660,7 +678,7 @@ class _SSHConnectPageState extends State<SSHConnectPage> {
                 )
               else 
                 _buildTextField(controller: _passwordController, label: "Password", icon: Icons.lock_outline, isPassword: true),
-
+    
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
@@ -701,7 +719,7 @@ class _SSHConnectPageState extends State<SSHConnectPage> {
 }
 
 // ==========================================
-// 4. 터미널 접속 화면 (🔥 전면 광고 추가됨)
+// 4. 터미널 접속 화면
 // ==========================================
 class TerminalPage extends StatefulWidget {
   final Map<String, String> serverInfo;
@@ -718,7 +736,6 @@ class _TerminalPageState extends State<TerminalPage> {
   SSHSession? session;
   String statusMessage = "Initializing...";
   
-  // 🔥 전면 광고 변수
   InterstitialAd? _interstitialAd;
 
   final List<Map<String, String>> snippets = [
@@ -744,18 +761,16 @@ class _TerminalPageState extends State<TerminalPage> {
     super.initState();
     terminal = Terminal(maxLines: 10000);
     _connectSSH();
-    _loadInterstitialAd(); // 접속하자마자 미리 광고 로드해둠 (나갈 때 띄우기 위해)
+    _loadInterstitialAd();
   }
 
-  // 🔥 전면 광고 로드
   void _loadInterstitialAd() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712', // 테스트 ID
+      adUnitId: 'ca-app-pub-3940256099942544/1033173712', 
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           _interstitialAd = ad;
-          // 광고 닫으면 화면 나가기
           _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
             onAdDismissedFullScreenContent: (ad) {
               ad.dispose();
@@ -774,19 +789,15 @@ class _TerminalPageState extends State<TerminalPage> {
     );
   }
 
-  // 연결 종료 및 화면 닫기 (광고 후 호출)
   void _closeConnectionAndPop() {
     client?.close();
     if (mounted) Navigator.pop(context);
   }
 
-  // 종료 버튼 눌렀을 때 실행되는 함수
   void _handleExit() {
     if (_interstitialAd != null) {
-      // 광고가 준비됐으면 보여줌
       _interstitialAd!.show();
     } else {
-      // 광고가 안 불러와졌으면 그냥 종료
       _closeConnectionAndPop();
     }
   }
@@ -861,6 +872,9 @@ class _TerminalPageState extends State<TerminalPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 [핵심] 하단 바 높이 가져오기
+    double bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -873,54 +887,55 @@ class _TerminalPageState extends State<TerminalPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.power_settings_new),
-            // 🔥 종료 버튼 누르면 광고 로직 실행
             onPressed: _handleExit,
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: TerminalView(
-                terminal,
-                autofocus: true,
-                textStyle: const TerminalStyle(
-                  fontFamily: 'Courier',
-                  fontSize: 14,
-                ),
+      // SafeArea 대신 Column 사용
+      body: Column(
+        children: [
+          Expanded(
+            child: TerminalView(
+              terminal,
+              autofocus: true,
+              textStyle: const TerminalStyle(
+                fontFamily: 'Courier',
+                fontSize: 14,
               ),
             ),
-            Container(
-              height: 48,
-              color: const Color(0xFF2C2C2C),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: snippets.length,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemBuilder: (context, index) {
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                    child: ElevatedButton(
-                      onPressed: () => _sendSnippet(snippets[index]['cmd']!),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF444444),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        minimumSize: const Size(40, 0),
-                      ),
-                      child: Text(
-                        snippets[index]['label']!,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
+          ),
+          Container(
+            // 높이 = 원래높이(48) + 시스템 바 높이
+            height: 48 + bottomPadding, 
+            color: const Color(0xFF2C2C2C), // 배경색은 시스템 바 뒤까지 칠해짐
+            // 실제 버튼 목록은 시스템 바 위로 밀어올림
+            padding: EdgeInsets.only(bottom: bottomPadding), 
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: snippets.length,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemBuilder: (context, index) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  child: ElevatedButton(
+                    onPressed: () => _sendSnippet(snippets[index]['cmd']!),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF444444),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      minimumSize: const Size(40, 0),
                     ),
-                  );
-                },
-              ),
+                    child: Text(
+                      snippets[index]['label']!,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1129,6 +1144,9 @@ class _SFTPPageState extends State<SFTPPage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 하단 바 높이 가져오기
+    double bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -1146,19 +1164,21 @@ class _SFTPPageState extends State<SFTPPage> with SingleTickerProviderStateMixin
           ],
         ),
       ),
+      // SafeArea 제거
       body: isLoading 
         ? const Center(child: CircularProgressIndicator()) 
         : TabBarView(
           controller: _tabController,
           children: [
-            _buildLocalView(),
-            _buildRemoteView(),
+            _buildLocalView(bottomPadding),
+            _buildRemoteView(bottomPadding),
           ],
         ),
     );
   }
 
-  Widget _buildLocalView() {
+  // 🔥 [수정] bottomPadding을 인자로 받아서 ListView 패딩에 추가
+  Widget _buildLocalView(double bottomPadding) {
     return Column(
       children: [
         Container(
@@ -1173,6 +1193,8 @@ class _SFTPPageState extends State<SFTPPage> with SingleTickerProviderStateMixin
         ),
         Expanded(
           child: ListView.builder(
+            // 🔥 리스트 마지막 아이템이 하단 바에 가려지지 않게 패딩 추가
+            padding: EdgeInsets.only(bottom: bottomPadding),
             itemCount: localFiles.length,
             itemBuilder: (context, index) {
               final file = localFiles[index];
@@ -1197,7 +1219,8 @@ class _SFTPPageState extends State<SFTPPage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildRemoteView() {
+  // 🔥 [수정] bottomPadding을 인자로 받아서 ListView 패딩에 추가
+  Widget _buildRemoteView(double bottomPadding) {
     return Column(
       children: [
         Container(
@@ -1212,10 +1235,11 @@ class _SFTPPageState extends State<SFTPPage> with SingleTickerProviderStateMixin
         ),
         Expanded(
           child: ListView.builder(
+            // 🔥 리스트 마지막 아이템이 하단 바에 가려지지 않게 패딩 추가
+            padding: EdgeInsets.only(bottom: bottomPadding),
             itemCount: remoteFiles.length,
             itemBuilder: (context, index) {
               final file = remoteFiles[index];
-              // isDirectory가 attr 안에 있습니다.
               final isDir = file.attr.isDirectory;
               
               if (file.filename == '.' || file.filename == '..') return const SizedBox.shrink();
@@ -1241,29 +1265,33 @@ class _SFTPPageState extends State<SFTPPage> with SingleTickerProviderStateMixin
   void _showFileOptions(String fileName, {required bool isLocal, FileSystemEntity? fileEntity, SftpName? sftpFile}) {
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => Wrap(
-        children: [
-          ListTile(
-            leading: Icon(isLocal ? Icons.cloud_upload : Icons.cloud_download, color: const Color(0xFFBB86FC)),
-            title: Text(isLocal ? "Upload to Server" : "Download to Phone"),
-            onTap: () {
-              Navigator.pop(ctx);
-              if (isLocal && fileEntity is File) {
-                _uploadFile(fileEntity);
-              } else if (!isLocal && sftpFile != null) {
-                _downloadFile(sftpFile);
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete, color: Colors.redAccent),
-            title: const Text("Delete"),
-            onTap: () {
-               Navigator.pop(ctx);
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Delete function disabled for safety.")));
-            },
-          ),
-        ],
+      builder: (ctx) => Container(
+        // 🔥 BottomSheet도 하단 시스템 바만큼 패딩 추가
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: Icon(isLocal ? Icons.cloud_upload : Icons.cloud_download, color: const Color(0xFFBB86FC)),
+              title: Text(isLocal ? "Upload to Server" : "Download to Phone"),
+              onTap: () {
+                Navigator.pop(ctx);
+                if (isLocal && fileEntity is File) {
+                  _uploadFile(fileEntity);
+                } else if (!isLocal && sftpFile != null) {
+                  _downloadFile(sftpFile);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.redAccent),
+              title: const Text("Delete"),
+              onTap: () {
+                 Navigator.pop(ctx);
+                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Delete function disabled for safety.")));
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

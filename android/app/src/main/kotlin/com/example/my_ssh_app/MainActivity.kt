@@ -1,8 +1,6 @@
-package com.example.my_ssh_app
+package com.secuthive.my_ssh_app // 🔥 본인의 패키지명과 똑같은지 꼭 확인!
 
-// 🔥 여기 import가 바뀝니다
-import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.android.FlutterFragmentActivity // 🔥 이게 중요함
 
-// 🔥 여기 상속받는 클래스가 바뀝니다
-class MainActivity: FlutterFragmentActivity() {
+class MainActivity: FlutterFragmentActivity() { // 🔥 Activity가 아니라 FragmentActivity 상속
 }
